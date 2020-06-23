@@ -30,7 +30,7 @@ rss: /atom.xml
 ## Carousel
 carousel:
   img: './img/head-img.jpg'
-  url: 'https://promotion.aliyun.com/ntms/act/qwbk.html?userCode=xs0pypd2'
+  url: /
 
 # 各个小工具的设置
 
@@ -38,7 +38,7 @@ carousel:
 widgets:
   - search
   - notification
-  - social
+  # - social
   - category
   - archive
   - tagcloud
@@ -54,7 +54,7 @@ jsonContent:
     text: true
     content: true
     categories: false
-    tags: false
+    tags: true
 
 ## 网站公告设置
 notification: |-
@@ -68,22 +68,22 @@ notification: |-
 social:
  - name: Github
    icon: git
-   href: //github.com/shenliyang
- - name: 邮箱
-   icon: envelope-o
-   href: mailto:snippet@91h5.cc
- - name: 联系QQ
-   icon: qq
-   href: /
- - name: 微信
-   icon: weixin
-   href: /
- - name: QQ群
-   icon: users
-   href: /
- - name: RSS
-   icon: feed
-   href: /atom.xml
+   href: //github.com/Carry-on
+#  - name: 邮箱
+#    icon: envelope-o
+#    href: 2379259142@qq.com
+#  - name: 联系QQ
+#    icon: qq
+#    href: /
+#  - name: 微信
+#    icon: weixin
+#    href: /
+#  - name: QQ群
+#    icon: users
+#    href: /
+#  - name: RSS
+#    icon: feed
+#    href: /atom.xml
 
 ## 文章分类设置
 cate_config:
@@ -246,7 +246,7 @@ baidu_site_verification:
 baidu_push: false
 
 #网站主题配置
-since: 2017
+since: 2020
 beian: 
 robot: 'all' ### 控制搜索引擎的抓取和索引编制行为，默认为all
 version: 1.2.3

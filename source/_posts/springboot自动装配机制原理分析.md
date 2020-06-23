@@ -28,7 +28,7 @@ tags: springboot
 
 > 能不能根据上下文来激活不同的bean
 
-动态注入
+动态注入（条件筛选，在注入之前处理）
 - ImportSelector
 - ImportBeanDefinitionRegistrar
 
@@ -48,4 +48,9 @@ xml:<import resource=""/>
 1.满足目录结构一致
 2.文件名一致
 3.key要存在，并且符合当前的加载
+
+## Starter
+
+#### 自定义starter
+1.format（格式化，string/json）
 
