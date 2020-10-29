@@ -150,14 +150,129 @@ rehash的步骤：
 2. 将所有的ht[0]上的节点rehash到ht[1]上，重新计算hash值和索引，然后放入指定的位置。
 3. 当ht[0]全部迁移到了ht[1]之后，释放ht[0]的空间，将ht[1]设置为ht[0]表，并创建新的ht[1]，为下次rehash做准备。
 
+##### 应用场景
+1. 存储对象类型数据
+
+2. 购物车
+
+### List列表
+存储有序的字符串（从左到右），元素可以重复。可以充当队列和栈的角色
+
+##### 存储（实现）原理
+用quickList来存储，quicklist存储了一个双向列表，每个节点都是ziplist
+```cpp
+typedef struct quicklist{
+    quicklistNode *head; /*指向双向列表的表头*/
+    quicklistNode *tail; /*指向双向列表的表尾*/
+    unsigned long count; /*所有的ziplist中一共存了多少个元素*/
+    unsigned long len;   /*双向链表的长度，node的数量*/
+    int fill: 16;        /*fillfactorforindividualnodes*/
+    unsigned int compress: 16; /*压缩深度，0：不压缩；*/
+}quicklist;
+```
+
+##### 应用场景
+1. 用户消息时间线 timeline
+因为list是有序的，可以用来做用户时间线
+2. 消息队列
+list提供了两个阻塞的弹出操作：blpop/brpop，可以设置超时时间
+
+### Set 集合
+String类型的无序集合，最大存储2^32-1（40亿左右）
+
+##### 存储（实现）原理
+Redis用inset或hashtable存储set。如果元素都是整数类型，就用inset。如果不是整数类型就是hashtable，如果元素超过了512个也会用hashtable存储。
+
+##### 应用场景
+1. 抽奖
+随机获取元素，spop myset
+2. 点赞，签到，打卡
+例如：以微博ID为key，用户ID为元素
+3. 商品标签
+4. 商品筛选
+获取差集sdiff，交集sinter，并集sunion
+5. 用户关注，推荐模型
+
+### ZSet 有序集合
+sorted set，有序的set，每个元素有个score。score相同时，按ASCII码排序
+
+##### 存储（实现）原理
+同时满足：1.元素数量小于128个，2.所有member的长度都小于64字节，使用ziplist编码
+在ziplist内部，按照score排序递增来存储。插入的时候要移动之后的数据
+超过阙值之后，使用skiplist+dict存储。
+
+##### 应用场景
+1. 排行榜
+
+### 其他数据结构
+- BitMaps
+BitMaps是在字符串类型上定义的位操作。一个字节由8个二进制位组成。
+- Hyperloglogs
+- streams
 
 
 
 # Redis原理
 
 ### Rdis高级特性，发布订阅，事务，lua脚本
+##### 发布订阅
+订阅频道
+`subscribe channel-1 channel-2 channel-3`
+向频道发布消息
+`publish channel-1 message`
+
+##### 事务
+Redis事务涉及4个命令：multi（开启事务），exec（执行事务），discard（取消事务），watch（监视）
+warch为Redis提供了乐观锁行为，也就是多个线程更新变量的时候，会跟原值做比较，只有它没有被其他线程修改的情况下，才更新成新的值。
+我们可以用watch监视一个或者多个key，如果开启事务之后，至少有一个被监视key键在exec执行之前被修改了，那么整个事务都会被取消（key提前过期除外）。可以用unwatch取消
+
+Redis事务存在两种问题，一种是在执行exec之前发生错误，一种是在执行exec之后发生错误。
+在执行exec之前发生错误，事务会被拒绝执行，也就是队列中所有的命令都不会得到执行。
+在执行exec之后发生错误（运行时错误），运行时错误之前成功的命令可以被执行并保存。
 
 ### Redis底层原理，单线程工作机制，内存回收，持久化
+Redis单线程好处：
+1. 没有创建线程，销毁线程的消耗
+2. 避免了线程上下文切换造成的CPU消耗
+3. 避免了线程之间带来的竞争，加锁释放锁死锁等
+
+##### 内存回收-过期策略
+- 定时过期（主动淘汰）
+每个设置了过期时间的key都需要创建一个定时器，到过期时间就会立刻清除。该策略可以立刻清除过期数据，对内存友好，但是会占用大量cpu资源去处理过期数据，从而影响缓存的响应时间和吞吐量。
+- 惰性过期（被动淘汰）
+当访问一个key时，才会判断该key是否过期，过期则清除。该策略可以最大化的节省cpu资源，却对内存非常不友好。极端情况可能出现大量过期的key没有被再次访问，从而不会被清除。，占用大量内存。
+- 定期过期
+每隔一段时间，会扫描一定数量的数据库中expires字典中一定数量的key，并清除其中已过期的key
+
+Redis中同时使用了惰性过期和定期过期策略。
+
+##### 内存回收-淘汰策略
+Redis淘汰策略，是指当内存使用到达最大内存极限时，需要使用淘汰算法来决定清理掉哪些数据，以保证新数据的存入。
+Redis八大淘汰策略：
+```property
+# volatile-lru -> Evict using approximated LRU, only keys with an expire set.
+# allkeys-lru -> Evict any key using approximated LRU.
+# volatile-lfu -> Evict using approximated LFU, only keys with an expire set.
+# allkeys-lfu -> Evict any key using approximated LFU.
+# volatile-random -> Remove a random key having an expire set.
+# allkeys-random -> Remove a random key, any key.
+# volatile-ttl -> Remove the key with the nearest expire time (minor TTL)
+# noeviction -> Don't evict anything, just return an error on write operations.
+```
+| 策略             | 含义 |
+| ----            | ---- |
+| volatile-lru    | 根据LRU算法删除设置了超时属性（expire）的键，直到腾出足够内存为止。如果没有可删除的键对象，回退到noeviction策略。|
+| allkeys-lru     | 根据LRU算法删除键，不管数据有没有设置超时属性，直到腾出足够内存为止。 |
+| volatile-lfu    | 在带有过期时间的键中选择最不常用的。 |
+| allkeys-lfu     | 在所有的键中选择最不常用的，不管数据有没有设置超时属性 |
+| volatile-random | 在带有过期时间的键中随机选择。 |
+| allkeys-random  | 随机删除所有键，直到腾出足够内存为止。 |
+| volatile-ttl    | 根据键值对象的ttl属性，删除最近将要过期数据。如果没有，回退到noeviction策略。 |
+| noeviction      | 默认策略，不会删除任何数据，拒绝所有写入操作并返回客户端错误信息（error）OOMcommandnotallowedwhenusedmemory，此时Redis只响应读操作。 |
+
+动态修改淘汰策略：
+`config set maxmemory-policy volatile-lru`
+建议使用volatile-lru，在保证正常服务的情况下，优先删除最近最少使用的key
 
 
 # Redis分布式
